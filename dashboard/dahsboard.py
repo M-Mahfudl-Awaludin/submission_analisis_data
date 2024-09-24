@@ -34,7 +34,7 @@ def create_df_time(df):
     return df_time
 
 #menyiapkan dataset
-df_airql=pd.read_csv("df_Air_Quality.csv")
+df_airql=pd.read_csv("/dashboard/df_Air_Quality.csvd")
 df_airql.sort_values(by="column_datetime")
 df_airql.reset_index(inplace=True)
 df_airql["column_datetime"]=pd.to_datetime(df_airql["column_datetime"])
@@ -45,7 +45,7 @@ max_date = df_airql["column_datetime"].max()
  
 with st.sidebar:
     # Set Logo
-    st.image("air-quality_logo.png")
+    st.image("/dashboard/air-quality_logo.png")
     
     # Mengambil start_date & end_date dari date_input
     start_date = st.date_input("Start date", min_date)
