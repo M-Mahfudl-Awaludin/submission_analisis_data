@@ -34,7 +34,7 @@ def create_df_time(df):
     return df_time
 
 #menyiapkan dataset
-df_airql=pd.read_csv("df_Air_Quality.csv")
+df_airql=pd.read_csv("/submission_analisis_data/dashboard/df_Air_Quality.csv")
 df_airql.sort_values(by="column_datetime")
 df_airql.reset_index(inplace=True)
 df_airql["column_datetime"]=pd.to_datetime(df_airql["column_datetime"])
