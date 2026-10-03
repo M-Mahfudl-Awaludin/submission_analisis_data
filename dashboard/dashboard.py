@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 
+BASE_DIR = Path(__file__).resolve().parent
+
 # ======================================================================
 # PAGE CONFIG & GLOBAL STYLE
 # ======================================================================
@@ -106,7 +108,7 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 # ======================================================================
 @st.cache_data
 def load_data():
-    df = pd.read_csv("main_data.csv")
+    df = pd.read_csv(BASE_DIR / "main_data.csv")
     for col in ["order_purchase_timestamp", "order_delivered_customer_date", "order_estimated_delivery_date"]:
         df[col] = pd.to_datetime(df[col], errors="coerce")
     df["order_month"] = df["order_purchase_timestamp"].dt.to_period("M").astype(str)
