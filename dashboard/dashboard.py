@@ -17,7 +17,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Consistent color palette used across every chart in this dashboard
+# Consistent color palette used across every chart in this dashboard.
+# Prinsip desain: untuk chart PERBANDINGAN, pakai satu base color netral lalu
+# sorot hanya elemen terpenting dengan warna kontras (bukan gradient/rainbow per bar).
 PALETTE = {
     "primary": "#4C72B0",
     "secondary": "#DD8452",
@@ -26,6 +28,10 @@ PALETTE = {
     "bad": "#C44E52",
     "neutral": "#8C8C8C",
 }
+BASE_NEUTRAL = "#B9C6D6"       # base color netral untuk bar yang "biasa saja"
+HIGHLIGHT_HIGH = "#2E5A96"     # sorot nilai tertinggi / paling penting (biru tua)
+HIGHLIGHT_LOW = "#B23A3A"      # sorot nilai terendah / jadi perhatian (merah tua)
+
 DELAY_COLORS = {
     "Lebih cepat >7 hari": "#2b8cbe",
     "Tepat waktu": "#55A868",
@@ -33,7 +39,16 @@ DELAY_COLORS = {
     "Terlambat >7 hari": "#C44E52",
 }
 TIER_COLORS = {"Small Seller": "#fcbba1", "Medium Seller": "#fb6a4a", "Large Seller": "#a50f15"}
-SEGMENT_PALETTE = "viridis"
+
+
+def highlight_bars(n, highlight_idx, base=BASE_NEUTRAL, highlight=HIGHLIGHT_HIGH):
+    """Satu base color netral untuk semua bar, kecuali bar ke-`highlight_idx`
+    yang disorot dengan warna kontras — menghindari gradient warna yang tidak
+    bermakna (prinsip desain: warna hanya dipakai saat perlu menyorot info)."""
+    colors = [base] * n
+    if 0 <= highlight_idx < n:
+        colors[highlight_idx] = highlight
+    return colors
 
 sns.set_theme(style="whitegrid", rc={"axes.edgecolor": "#D0D0D0"})
 plt.rcParams.update({
@@ -43,6 +58,9 @@ plt.rcParams.update({
     "axes.labelsize": 11,
 })
 
+# CSS memakai CSS variable bawaan Streamlit (--background-color, --text-color, dst.)
+# yang otomatis menyesuaikan tema aktif (light/dark/auto) milik viewer,
+# BUKAN warna hardcoded — ini yang membuat KPI card tetap terbaca di dark mode.
 CUSTOM_CSS = """
 <style>
     .main > div {padding-top: 1.2rem;}
@@ -52,40 +70,45 @@ CUSTOM_CSS = """
         padding: 1.4rem 1.8rem;
         border-radius: 14px;
         background: linear-gradient(135deg, #4C72B0 0%, #6a8fc7 100%);
-        color: white;
+        color: #FFFFFF;
         margin-bottom: 1.2rem;
     }
     .dashboard-header h1 {
         margin: 0;
         font-size: 1.8rem;
         font-weight: 700;
-        color: white;
+        color: #FFFFFF;
     }
     .dashboard-header p {
         margin: 0.3rem 0 0 0;
-        opacity: 0.9;
+        opacity: 0.92;
         font-size: 0.95rem;
+        color: #FFFFFF;
     }
 
     div[data-testid="stMetric"] {
-        background: #FFFFFF;
-        border: 1px solid #ECECEC;
+        background: var(--secondary-background-color);
+        border: 1px solid rgba(128, 128, 128, 0.25);
         border-left: 5px solid #4C72B0;
         border-radius: 10px;
         padding: 0.9rem 1rem 0.6rem 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
-    div[data-testid="stMetricLabel"] {font-weight: 600; color: #555;}
+    div[data-testid="stMetricValue"] {color: var(--text-color) !important;}
+    div[data-testid="stMetricLabel"] {font-weight: 600; color: var(--text-color) !important; opacity: 0.8;}
 
     .section-note {
-        color: #6B6B6B;
+        color: var(--text-color);
+        opacity: 0.65;
         font-size: 0.88rem;
         margin-top: -0.3rem;
         margin-bottom: 0.8rem;
     }
     .insight-box {
-        background: #F7F9FC;
+        background: var(--secondary-background-color);
+        border: 1px solid rgba(128, 128, 128, 0.2);
         border-left: 4px solid #4C72B0;
+        color: var(--text-color);
         border-radius: 8px;
         padding: 0.8rem 1rem;
         margin-top: 0.6rem;
@@ -97,7 +120,7 @@ CUSTOM_CSS = """
         border-radius: 999px;
         font-size: 0.78rem;
         font-weight: 700;
-        color: white;
+        color: #FFFFFF;
     }
 </style>
 """
@@ -257,7 +280,12 @@ with tab1:
         st.markdown(f"**Top {n_show} kategori (revenue tertinggi)**")
         top_n = category_summary.head(n_show).sort_values("revenue")
         fig, ax = plt.subplots(figsize=(6, 5))
-        ax.barh(top_n.index, top_n["revenue"], color=sns.color_palette("Blues_r", len(top_n)))
+        # Satu base color netral untuk semua bar; hanya kategori #1 (paling kanan/
+        # paling tinggi) yang disorot dengan warna kontras — panjang bar sudah
+        # cukup menunjukkan ranking, jadi warna gradient per bar tidak diperlukan.
+        colors_top = highlight_bars(len(top_n), highlight_idx=len(top_n) - 1,
+                                     base=BASE_NEUTRAL, highlight=HIGHLIGHT_HIGH)
+        ax.barh(top_n.index, top_n["revenue"], color=colors_top)
         ax.set_xlabel("Revenue (BRL)")
         sns.despine(left=True, bottom=True)
         st.pyplot(fig)
@@ -265,7 +293,11 @@ with tab1:
         st.markdown(f"**Bottom {n_show} kategori (revenue terendah)**")
         bottom_n = category_summary.tail(n_show).sort_values("revenue")
         fig, ax = plt.subplots(figsize=(6, 5))
-        ax.barh(bottom_n.index, bottom_n["revenue"], color=sns.color_palette("Reds", len(bottom_n)))
+        # Sama: base color netral, hanya kategori revenue TERENDAH (paling kiri)
+        # yang disorot merah untuk menarik perhatian sebagai perhatian khusus.
+        colors_bottom = highlight_bars(len(bottom_n), highlight_idx=0,
+                                        base=BASE_NEUTRAL, highlight=HIGHLIGHT_LOW)
+        ax.barh(bottom_n.index, bottom_n["revenue"], color=colors_bottom)
         ax.set_xlabel("Revenue (BRL)")
         sns.despine(left=True, bottom=True)
         st.pyplot(fig)
@@ -297,8 +329,8 @@ with tab1:
 # TAB 2 — Delivery delay vs review
 # ======================================================================
 with tab2:
-    st.subheader("Apakah keterlambatan pengiriman berpengaruh terhadap review score?")
-    st.markdown('<p class="section-note">Pertanyaan Bisnis 2 — hubungan delay pengiriman vs kepuasan pelanggan</p>', unsafe_allow_html=True)
+    st.subheader("Bagaimana pengaruh keterlambatan pengiriman terhadap review score pelanggan?")
+    st.markdown('<p class="section-note">Pertanyaan Bisnis 2 — pola hubungan tingkat keterlambatan pengiriman vs kepuasan pelanggan</p>', unsafe_allow_html=True)
 
     delivered = filtered[(filtered["order_status"] == "delivered") &
                           (filtered["order_delivered_customer_date"].notna())].copy()
@@ -311,11 +343,13 @@ with tab2:
                         .groupby("delay_category")["review_score"]
                         .agg(avg_review="mean", jumlah_order="count")
                         .reindex(order_cats))
+    review_by_delay["pct_order"] = review_by_delay["jumlah_order"] / review_by_delay["jumlah_order"].sum() * 100
 
     if review_by_delay["jumlah_order"].sum() > 0:
         c1, c2 = st.columns([3, 2])
         with c1:
-            fig, ax = plt.subplots(figsize=(8, 5))
+            st.markdown("**Rata-rata review score per kategori keterlambatan**")
+            fig, ax = plt.subplots(figsize=(8, 4.6))
             bars = ax.bar(review_by_delay.index, review_by_delay["avg_review"],
                            color=[DELAY_COLORS[i] for i in review_by_delay.index])
             ax.set_ylim(0, 5)
@@ -327,16 +361,41 @@ with tab2:
             plt.xticks(rotation=10)
             sns.despine()
             st.pyplot(fig)
+
+            st.markdown("**Distribusi proporsi order per kategori keterlambatan**")
+            fig2, ax2 = plt.subplots(figsize=(8, 1.8))
+            left = 0
+            for cat in order_cats:
+                pct = review_by_delay.loc[cat, "pct_order"]
+                if pd.isna(pct):
+                    continue
+                ax2.barh(0, pct, left=left, color=DELAY_COLORS[cat], label=cat)
+                if pct > 4:
+                    ax2.text(left + pct / 2, 0, f"{pct:.0f}%", va="center", ha="center",
+                              fontsize=9, color="white", fontweight="bold")
+                left += pct
+            ax2.set_xlim(0, 100)
+            ax2.set_yticks([])
+            ax2.set_xlabel("% dari total order terkirim")
+            ax2.legend(loc="upper center", bbox_to_anchor=(0.5, -0.9), ncol=4, fontsize=8, frameon=False)
+            sns.despine(left=True)
+            st.pyplot(fig2)
         with c2:
             st.markdown("**Ringkasan per kategori**")
-            st.dataframe(review_by_delay.style.format({"avg_review": "{:.2f}", "jumlah_order": "{:,.0f}"})
-                         .background_gradient(cmap="RdYlGn", subset=["avg_review"]))
+            st.dataframe(review_by_delay.style.format({
+                "avg_review": "{:.2f}", "jumlah_order": "{:,.0f}", "pct_order": "{:.1f}%"
+            }).background_gradient(cmap="RdYlGn", subset=["avg_review"]))
 
-        drop = review_by_delay["avg_review"].iloc[1] - review_by_delay["avg_review"].iloc[2]
+        drop_ontime_to_late = review_by_delay["avg_review"].iloc[1] - review_by_delay["avg_review"].iloc[2]
+        drop_total = review_by_delay["avg_review"].iloc[1] - review_by_delay["avg_review"].iloc[3]
+        pct_late = review_by_delay.loc[["Terlambat 1-7 hari", "Terlambat >7 hari"], "pct_order"].sum()
         st.markdown(
-            f'<div class="insight-box">📌 <b>Insight:</b> Review score turun paling tajam (-{drop:.2f} poin) begitu order melewati '
-            f'tanggal estimasi pengiriman — dari rata-rata <b>{review_by_delay["avg_review"].iloc[1]:.2f}</b> (tepat waktu) '
-            f'menjadi <b>{review_by_delay["avg_review"].iloc[2]:.2f}</b> (terlambat 1-7 hari).</div>',
+            f'<div class="insight-box">📌 <b>Insight:</b> Review score turun secara bertahap seiring bertambahnya keterlambatan — '
+            f'dari rata-rata <b>{review_by_delay["avg_review"].iloc[1]:.2f}</b> (tepat waktu) menjadi hanya '
+            f'<b>{review_by_delay["avg_review"].iloc[3]:.2f}</b> (terlambat &gt;7 hari), penurunan total <b>{drop_total:.2f} poin</b>. '
+            f'Penurunan paling tajam (<b>-{drop_ontime_to_late:.2f} poin</b>) justru terjadi tepat saat order melewati tanggal estimasi, '
+            f'bukan baru terasa setelah terlambat lama. Secara volume, sekitar <b>{pct_late:.1f}%</b> order terkirim mengalami keterlambatan '
+            f'(baik ringan maupun berat) — porsi yang cukup besar untuk diprioritaskan dalam perbaikan SLA logistik.</div>',
             unsafe_allow_html=True,
         )
     else:
@@ -370,8 +429,12 @@ with tab3:
     with c2:
         fig, ax = plt.subplots(figsize=(7, 5))
         seg_order = segment_summary.index
-        sns.barplot(x=segment_summary["jumlah_pelanggan"], y=seg_order, hue=seg_order,
-                    palette=SEGMENT_PALETTE, legend=False, ax=ax)
+        # Base color netral untuk semua segmen, sorot hanya segmen TERBESAR
+        # (indeks 0, karena sudah diurutkan descending) untuk menonjolkan
+        # temuan utama — bukan 1 warna acak per segmen tanpa makna.
+        seg_colors = highlight_bars(len(seg_order), highlight_idx=0,
+                                     base=BASE_NEUTRAL, highlight=HIGHLIGHT_HIGH)
+        ax.barh(seg_order, segment_summary["jumlah_pelanggan"], color=seg_colors)
         ax.set_xlabel("Jumlah Pelanggan"); ax.set_ylabel("")
         for i, v in enumerate(segment_summary["jumlah_pelanggan"]):
             ax.text(v, i, f"  {v:,} ({segment_summary['pct'].iloc[i]:.1f}%)", va="center", fontsize=9)
